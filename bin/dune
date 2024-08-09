@@ -5,10 +5,12 @@
   reading_list
   lwt
   containers
+  caqti
+  caqti-driver-sqlite3
+  caqti-lwt.unix
   dream
   dream-html
   cohttp
-  cohttp-lwt
-  caqti-driver-sqlite3)
+  cohttp-lwt)
  (preprocess
   (pps ppx_string ppx_compare)))

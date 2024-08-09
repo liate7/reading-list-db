@@ -1,5 +1,15 @@
 (library
  (name reading_list)
- (libraries lwt containers dream dream-html cohttp cohttp-lwt caqti-driver-sqlite3)
+ (libraries
+  lwt
+  containers
+  dream
+  dream-html
+  cohttp
+  cohttp-lwt
+  caqti-driver-sqlite3
+  caqti
+  caqti-lwt
+  caqti-lwt.unix)
  (preprocess
   (pps ppx_string ppx_compare)))

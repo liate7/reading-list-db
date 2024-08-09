@@ -30,9 +30,10 @@
     ))
 
 (packages->manifest
- (xcons (map specification->package
+ (xcons (specifications->packages
              '("gcc-toolchain" "autoconf" "rlwrap"
                "pkg-config" "sqlite@3"
+               "sqlite:static"
                "openssl" "libev"
                "gmp"
                ))

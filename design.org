@@ -37,14 +37,14 @@ Schema like:
 
   create table tag (
     id integer primary key not null,
-    name text not null,
-    description text
+    name text unique not null,
+    description text not null default ''
   );
 
   create table tag_entry (
-    id integer references entry(id) not null,
+    entry integer references entry(id) not null,
     tag integer references tag(id) not null,
-    payload text,
+    payload text
   );
 #+end_src
 (maybe with the entry id a UUID?)
