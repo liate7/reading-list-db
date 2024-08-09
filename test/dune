@@ -1,0 +1,5 @@
+(test
+ (name test_reading_list)
+ (libraries lwt dream dream-html cohttp cohttp-lwt caqti-driver-sqlite3)
+ (preprocess
+  (pps ppx_string ppx_compare)))

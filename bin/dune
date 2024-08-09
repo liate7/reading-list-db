@@ -1,0 +1,13 @@
+(executable
+ (public_name reading_list)
+ (name main)
+ (libraries
+  reading_list
+  lwt
+  dream
+  dream-html
+  cohttp
+  cohttp-lwt
+  caqti-driver-sqlite3)
+ (preprocess
+  (pps ppx_string ppx_compare)))

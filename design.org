@@ -1,0 +1,69 @@
+* What stack?
+Definitely using sqlite & mostly server-side
+**  Dream + dream-html on Lwt?
+Advantages:
+- Featureful
+  - Dream in general
+  - dream-html does MathML and htmx
+- Mature (~caqti-eio~ is still experimental)
+** Cohttp + Caqti + _ on Eio?
+Advantages:
+- I like Eio
+- Lower-level - more learning opportunities
+
+What html generation library?
+- Tyxml?
+  - More type-safe
+    (does this prevent using htmx (ergonomically), or embedding MathML?)
+  - more used
+- pure-html?
+  - More features: again, handles MathML and htmx
+
+** Choice
+going with Dream + dream-html stack, bcs htmx and easing into webdev
+
+* MVP
+Schema like:
+#+begin_src sql
+  create table entry (
+    id integer primary key asc not null,
+    url text not null,
+    title text not null,
+    state text not null
+      default 'to-read'
+      check (state in ('to-read', 'reading', 'read')),
+    created_at integer not null
+  );
+
+  create table tag (
+    id integer primary key not null,
+    name text not null,
+    description text
+  );
+
+  create table tag_entry (
+    id integer references entry(id) not null,
+    tag integer references tag(id) not null,
+    payload text,
+  );
+#+end_src
+(maybe with the entry id a UUID?)
+
+Pages:
+- Base view, a (probably dynamic, like [[https://htmx.org/examples/active-search/][this htmx]]) table of entries
+  MVP probably should have separate things for title/url search vs tags and state
+- Adding an entry
+  Ideally at least the option to load info from a URL
+  - Add info
+  - Choose whether to download, at least if a pdf?
+  - Warn if duplicate url or title
+  - Interface should encourage reusing tags
+- Viewing an entry
+  MVP might not, just a link that opens url in new tab + moves forward to ~reading~ state
+
+So routes probably like:
+- ~/~: base view
+- ~/search~: for searching, has parameters for search parts, returns HTML fragment
+- ~/add~: for adding an entry, parameter for seed url (or file data?)
+- ~/view/:external_id~: for viewing
+  does ~to-read~ -> ~reading~ state transition, then redirects or returns
