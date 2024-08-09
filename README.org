@@ -1,0 +1,3 @@
+A basic web-app for handling (adding, searching, etc) a reading list.
+
+This is built for my personal use, don't expect usability for non-me users
