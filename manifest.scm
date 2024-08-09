@@ -34,6 +34,7 @@
              '("gcc-toolchain" "autoconf" "rlwrap"
                "pkg-config" "sqlite@3"
                "openssl" "libev"
+               "gmp"
                ))
         ;; for zarith
         cc))

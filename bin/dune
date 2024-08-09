@@ -4,6 +4,7 @@
  (libraries
   reading_list
   lwt
+  containers
   dream
   dream-html
   cohttp

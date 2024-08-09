@@ -18,6 +18,7 @@
  (synopsis "A web app for maintaining my reading list")
  (description "")
  (depends ocaml dune
+          containers
           lwt dream dream-html cohttp cohttp-lwt caqti-driver-sqlite3
           ppx_string ppx_compare
           (ocamlformat :dev) (merlin :dev) (utop :dev) (ocaml-print-intf :dev)
