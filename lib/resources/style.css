@@ -1,0 +1,41 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: Arial, sans-serif;
+}
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+.table-container {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+th {
+    background-color: #f2f2f2;
+    position: sticky;
+    top: 0;
+}
+.input-container {
+    background-color: #f2f2f2;
+    padding: 10px;
+    position: sticky;
+    bottom: 0;
+}
+input[type="search"] {
+    width: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+}

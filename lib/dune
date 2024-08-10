@@ -10,6 +10,10 @@
   caqti-driver-sqlite3
   caqti
   caqti-lwt
-  caqti-lwt.unix)
+  caqti-lwt.unix
+  yojson
+  timedesc)
  (preprocess
-  (pps ppx_string ppx_compare)))
+  (pps ppx_string ppx_compare ppx_yojson_conv ppx_blob))
+ (preprocessor_deps
+   (glob_files resources/*)))

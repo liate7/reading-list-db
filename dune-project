@@ -21,7 +21,9 @@
           containers
           lwt dream dream-html cohttp cohttp-lwt
           caqti caqti-lwt caqti-driver-sqlite3
-          ppx_string ppx_compare
+          yojson ppx_yojson_conv
+          timedesc
+          ppx_string ppx_compare ppx_blob
           (ocamlformat :dev) (merlin :dev) (utop :dev) (ocaml-print-intf :dev)
 ))
 

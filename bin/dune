@@ -14,3 +14,7 @@
   cohttp-lwt)
  (preprocess
   (pps ppx_string ppx_compare)))
+
+(executable
+ (name init_db)
+ (libraries reading_list lwt containers caqti caqti-lwt.unix caqti-driver-sqlite3))
