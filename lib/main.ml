@@ -16,7 +16,9 @@ let entry_to_row (_, { url; Entry.title = title'; state; created_at; tags }) =
       [
         td [] [ a [ HTML.href "%s" @@ Uri.to_string url ] [ txt "%s" title' ] ];
         td [] [ txt "%s" @@ Entry.state_to_string state ];
-        td [ class_ "time" ] [ txt "%s" created_at ];
+        td
+          [ class_ "time" ]
+          [ time [ datetime "%s" created_at ] [ txt "%s" created_at ] ];
         List.map tags ~f:(function
           | name, Some value -> txt "%s(%s)" name value
           | name, None -> txt "%s" name)

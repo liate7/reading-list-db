@@ -8,12 +8,12 @@ window.onload = function () {
         
     }
     function formatDateIn(node) {
-        let str = formatDate(new Date(node.innerText));
+        let str = formatDate(new Date(node.dateTime));
         node.innerText = str;
     }
 
     function formatDates() {
-        Array.from(document.getElementsByClassName("time"))
+        Array.from(document.getElementsByTagName("time"))
             .forEach(formatDateIn);
     }
 
