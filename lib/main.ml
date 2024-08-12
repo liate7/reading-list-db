@@ -47,11 +47,12 @@ let table_container entries =
           ];
       ])
 
-let input_container _ =
+let input_container =
   HTML.(
     div
       [ class_ "input-container" ]
       [
+        img [ src "/assets/spinner.svg"; class_ "htmx-indicator" ];
         input
           [
             class_ "form-control";
@@ -78,8 +79,8 @@ let main_page_template token entries =
                 name "viewport"; content "width=device-width, initial-scale=1.0";
               ];
             title [] "%s - Things to read" app_name;
-            style [] "%s" [%blob "resources/style.css"];
-            script [] "%s" [%blob "resources/fix_dates.js"];
+            link [ href "/assets/style.css"; rel "stylesheet" ];
+            script [ src "/assets/fix_dates.js" ] "";
             htmx_script;
           ];
         body
@@ -87,7 +88,7 @@ let main_page_template token entries =
           [
             div
               [ class_ "entries" ]
-              [ table_container entries; input_container () ];
+              [ table_container entries; input_container ];
           ];
       ])
 

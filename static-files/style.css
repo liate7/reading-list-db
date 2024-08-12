@@ -33,6 +33,9 @@ th {
     padding: 10px;
     position: sticky;
     bottom: 0;
+    display: flex;
+    flex-direction: row;
+    width: 100hh;
 }
 input[type="search"] {
     width: 100%;

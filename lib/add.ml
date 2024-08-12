@@ -49,7 +49,7 @@ let add_page_template token (tags, _) =
                 name "viewport"; content "width=device-width, initial-scale=1.0";
               ];
             title [] "%s - Add an entry" app_name;
-            style [] "%s" [%blob "resources/style.css"];
+            link [ href "/assets/style.css"; rel "stylesheet" ];
             htmx_script;
           ];
         body
@@ -197,9 +197,9 @@ let response req =
 
 let routes =
   [
-    Dream.get "/" page;
-    Dream.post "/" response;
-    Dream.post "/tag" add_tag_response;
-    Dream.post "/new-tag" new_tag_response;
-    (Dream.delete "/remove-tag" @@ fun _ -> Dream.html "");
+    Dream.get "/add/" page;
+    Dream.post "/add/" response;
+    Dream.post "/add/tag" add_tag_response;
+    Dream.post "/add/new-tag" new_tag_response;
+    (Dream.delete "/add/remove-tag" @@ fun _ -> Dream.html "");
   ]
