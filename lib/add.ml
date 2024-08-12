@@ -145,7 +145,10 @@ let new_tag_response =
       Dream.log "%a"
         (List.pp (fun fmt (k, v) -> Format.fprintf fmt "%s: %s" k v))
         form;
-      let name = form |> List.assoc ~eq:String.equal "tag-name"
+      let name =
+        form
+        |> List.assoc ~eq:String.equal "tag-name"
+        |> String.lowercase_ascii |> String.trim
       and descr = form |> List.assoc ~eq:String.equal "description" in
       let+ res = Dream.sql req @@ Db.create_tag ~name ~descr in
       res |> Result.map (fun _ -> Tag.{ name; description = descr }))

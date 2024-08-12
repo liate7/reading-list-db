@@ -48,21 +48,65 @@ let table_container entries =
       ])
 
 let input_container =
+  let common_htmx =
+    [
+      Hx.post "/search";
+      Hx.target "#search-results";
+      Hx.indicator ".htmx-indicator";
+      Hx.include_ "closest form";
+    ]
+  in
   HTML.(
-    div
+    form
       [ class_ "input-container" ]
       [
-        img [ src "/assets/spinner.svg"; class_ "htmx-indicator" ];
-        input
+        img
           [
-            class_ "form-control";
-            type_ "search";
-            name "search";
-            placeholder "Search titles…";
-            Hx.post "/search";
-            Hx.trigger "input changed delay:500ms, search";
-            Hx.target "#search-results";
-            Hx.indicator ".htmx-indicator";
+            src "/assets/spinner.svg";
+            class_ "htmx-indicator";
+            alt "Loading indicator";
+          ];
+        fieldset
+          [ class_ "title-search" ]
+          [
+            legend [] [ txt "Search titles:" ];
+            input
+              ([
+                 class_ "form-control";
+                 type_ "search";
+                 name "search";
+                 placeholder "Search titles…";
+                 Hx.trigger "input changed delay:500ms, search";
+               ]
+              @ common_htmx);
+          ];
+        fieldset
+          [ name "state"; class_ "to-read-states" ]
+          (let checkbox_common =
+             [ type_ "checkbox"; Hx.trigger "click delay:500ms" ] @ common_htmx
+           in
+           [
+             legend [] [ txt "To-read state:" ];
+             input ([ name "to-read"; id "to-read"; checked ] @ checkbox_common);
+             label [ for_ "to-read" ] [ txt "To read" ];
+             input ([ name "reading"; id "reading"; checked ] @ checkbox_common);
+             label [ for_ "reading" ] [ txt "Reading" ];
+             input ([ name "read"; id "read" ] @ checkbox_common);
+             label [ for_ "read" ] [ txt "Read" ];
+           ]);
+        fieldset
+          [ class_ "tags-search" ]
+          [
+            legend [] [ txt "Tags (comma-separated):" ];
+            input
+              ([
+                 class_ "form-control";
+                 type_ "text";
+                 name "tags";
+                 placeholder "Comma, separated, list, of tags…";
+                 Hx.trigger "input changed delay:500ms, search";
+               ]
+              @ common_htmx);
           ];
       ])
 
@@ -93,16 +137,36 @@ let main_page_template token entries =
       ])
 
 let page =
-  wrap_page (fun req -> Dream.sql req Db.select_all_entries) main_page_template
+  wrap_page
+    (fun req ->
+      Dream.sql req
+      @@ Db.select_filtered_entries ~states:[ Entry.To_read; Entry.Reading ])
+    main_page_template
 
 let search_response =
   Route.wrap_post_response
     (fun form req ->
+      Dream.log "Form: %a"
+        (List.pp @@ fun fmt (k, v) -> Format.fprintf fmt "'%s': '%s'" k v)
+        form;
       let search =
         Option.(
           form |> List.assoc_opt ~eq:String.equal "search" >>= function
           | "" -> None
           | s -> Some s)
+      and tags =
+        form
+        |> List.assoc_opt ~eq:String.equal "tags"
+        |> Option.get_or ~default:"" |> String.split ~by:","
+        |> List.map ~f:String.trim
+        |> List.filter ~f:(fun s -> String.(s <> ""))
+        |> List.map ~f:String.lowercase_ascii
+      and states =
+        form
+        |> List.filter_map ~f:(fun (k, v) ->
+               match Entry.state_of_string k with
+               | Some s when String.(v = "on") -> Some s
+               | _ -> None)
       in
-      Dream.sql req @@ Db.select_filtered_entries ?search)
+      Dream.sql req @@ Db.select_filtered_entries ~tags ?search ~states)
     Fun.(fun _ -> render_entries %> HTML.null)

@@ -37,10 +37,13 @@ th {
     flex-direction: row;
     width: 100hh;
 }
-input[type="search"] {
-    width: 100%;
+
+.form-control {
     padding: 10px;
     box-sizing: border-box;
+    margin-top: auto;
+    margin-bottom: auto;
+    width: 100%;
 }
 
 .new-entry {
@@ -49,4 +52,21 @@ input[type="search"] {
     width: 90ch;
     margin-left: 2ch;
     margin-top: 2ch;
+}
+
+.htmx-indicator {
+    width: 2em;
+    height: 2em;
+    margin-top: auto;
+    margin-bottom: auto;
+}
+
+.title-search {
+    width: 65%;
+}
+.to-read-states {
+    width: 15%;
+}
+.tags-search {
+    width: 20%;
 }

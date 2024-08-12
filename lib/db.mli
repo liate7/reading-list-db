@@ -14,6 +14,7 @@ module Data : sig
 
     val id_of_int : int -> id
     val state_to_string : state -> string
+    val state_of_string : string -> state option
     val to_string : t -> string
   end
 

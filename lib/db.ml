@@ -9,6 +9,12 @@ module Data = struct
       | Reading -> "reading"
       | Read -> "read"
 
+    let state_of_string = function
+      | "to-read" -> Some To_read
+      | "reading" -> Some Reading
+      | "read" -> Some Read
+      | _ -> None
+
     type t = {
       url : Uri.t;
       title : string;
@@ -68,13 +74,10 @@ module Q = struct
       ~decode:Fun.(Uri.of_string %> Result.return)
 
   let state =
-    custom string
-      ~encode:Fun.(Entry.state_to_string %> Result.return)
-      ~decode:(function
-        | "to-read" -> Ok Entry.To_read
-        | "reading" -> Ok Entry.Reading
-        | "read" -> Ok Entry.Read
-        | s -> Error ("Invalid state: " ^ s))
+    enum ~encode:Entry.state_to_string
+      ~decode:(fun s ->
+        Entry.state_of_string s |> Option.to_result ("Invalid state: " ^ s))
+      "state"
 
   (* TODO: exn handling *)
   let list ~of_json ~to_json =
@@ -99,11 +102,8 @@ module Q = struct
   let state_list =
     list
       ~of_json:(fun s ->
-        match Yojson.Safe.Util.to_string s with
-        | "to-read" -> Entry.To_read
-        | "reading" -> Entry.Reading
-        | "read" -> Entry.Read
-        | s -> failwith ("Invalid state: " ^ s))
+        let s = Yojson.Safe.Util.to_string s in
+        s |> Entry.state_of_string |> Option.get_exn_or ("Invalid state: " ^ s))
       ~to_json:(fun str -> `String (Entry.state_to_string str))
 
   let tags =
