@@ -2,9 +2,9 @@ body, html {
     margin: 0;
     padding: 0;
     height: 100%;
-    font-family: Arial, sans-serif;
+    font-family: serif;
 }
-.container {
+.entries {
     display: flex;
     flex-direction: column;
     height: 100vh;
@@ -38,4 +38,12 @@ input[type="search"] {
     width: 100%;
     padding: 10px;
     box-sizing: border-box;
+}
+
+.new-entry {
+    display: flex;
+    flex-direction: row;
+    width: 90ch;
+    margin-left: 2ch;
+    margin-top: 2ch;
 }

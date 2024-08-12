@@ -76,6 +76,36 @@ module Q = struct
         | "read" -> Ok Entry.Read
         | s -> Error ("Invalid state: " ^ s))
 
+  (* TODO: exn handling *)
+  let list ~of_json ~to_json =
+    custom (option string)
+      ~encode:(function
+        | [] -> Ok None
+        | _ :: _ as list ->
+            `List (List.map ~f:to_json list)
+            |> Yojson.Safe.to_string |> Option.return |> Result.return)
+      ~decode:(function
+        | None -> [] |> Result.return
+        | Some str ->
+            Yojson.Safe.(from_string str |> Util.to_list)
+            |> List.map ~f:of_json |> Result.return)
+
+  let tag_list =
+    list ~of_json:Yojson.Safe.Util.to_string ~to_json:(fun str -> `String str)
+
+  let tag_id_list =
+    list ~of_json:Yojson.Safe.Util.to_int ~to_json:(fun str -> `Int str)
+
+  let state_list =
+    list
+      ~of_json:(fun s ->
+        match Yojson.Safe.Util.to_string s with
+        | "to-read" -> Entry.To_read
+        | "reading" -> Entry.Reading
+        | "read" -> Entry.Read
+        | s -> failwith ("Invalid state: " ^ s))
+      ~to_json:(fun str -> `String (Entry.state_to_string str))
+
   let tags =
     custom string
       ~encode:
@@ -121,20 +151,35 @@ module Q = struct
     (t3 int int (option string) ->. unit)
       "insert or replace into tag_entry (entry, tag, payload) values (?, ?, ?)"
 
+  let tag_entry' =
+    (t2 int tag_id_list ->. unit)
+      {|insert or replace into tag_entry (entry, tag)
+       select ?, id from tag
+         where tag.id in (select value from json_each(?))|}
+
   let select_all_entries =
     (unit ->* t2 int to_read) [%blob "resources/select_all_entries.sql"]
 
   let select_filtered_entries =
-    (t3 (option state) (option string) (option string) ->* t2 int to_read)
+    (t3 state_list (option string) tag_list ->* t2 int to_read)
       [%blob "resources/select_filtered_entries.sql"]
 
   let select_all_tags =
     (unit ->* t2 int tag) "select id, name, description from tag"
 
+  let select_tags_by_name =
+    (tag_list ->* t2 int tag)
+      "select id, name, description from tag where name in (select value from \
+       json_each(?))"
+
   let entry_by_id = (int ->! to_read) [%blob "resources/entry_by_id.sql"]
 
   let tag_by_id =
     (int ->! tag) "select name, description from tag where tag.id = ?"
+
+  let tag_by_name =
+    (string ->? t2 int tag)
+      "select id, name, description from tag where tag.name = ?"
 end
 
 let init_entries (module Conn : Caqti_lwt.CONNECTION) =
@@ -154,17 +199,26 @@ let create_tag ~name ~descr (module Conn : Caqti_lwt.CONNECTION) =
 let tag_entry entry_id tag_id payload (module Conn : Caqti_lwt.CONNECTION) =
   Conn.exec Q.tag_entry (entry_id, tag_id, payload)
 
+let tag_entry' entry_id tag_ids (module Conn : Caqti_lwt.CONNECTION) =
+  Conn.exec Q.tag_entry' (entry_id, tag_ids)
+
 let select_all_entries (module Conn : Caqti_lwt.CONNECTION) =
   Conn.collect_list Q.select_all_entries ()
 
-let select_filtered_entries ?state ?search ?tag
+let select_filtered_entries ?(states = []) ?search ?(tags = [])
     (module Conn : Caqti_lwt.CONNECTION) =
-  Conn.collect_list Q.select_filtered_entries (state, search, tag)
+  Conn.collect_list Q.select_filtered_entries (states, search, tags)
 
 let select_all_tags (module Conn : Caqti_lwt.CONNECTION) =
   Conn.collect_list Q.select_all_tags ()
+
+let select_tags_by_name names (module Conn : Caqti_lwt.CONNECTION) =
+  Conn.collect_list Q.select_tags_by_name names
 
 let entry_by_id id (module Conn : Caqti_lwt.CONNECTION) =
   Conn.find Q.entry_by_id id
 
 let tag_by_id id (module Conn : Caqti_lwt.CONNECTION) = Conn.find Q.tag_by_id id
+
+let tag_by_name name (module Conn : Caqti_lwt.CONNECTION) =
+  Conn.find_opt Q.tag_by_name name

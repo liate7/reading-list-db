@@ -6,7 +6,8 @@ let () =
   @@ Dream.sql_sessions
   @@ Dream.router
        [
-         Dream.get "/" Route.main_page;
+         Dream.get "/" Main.page;
          Dream.get "/search" (fun req -> Dream.redirect req "/");
-         Dream.post "/search" Route.search_response;
+         Dream.post "/search" Main.search_response;
+         Dream.scope "/add" [] Add.routes;
        ]
