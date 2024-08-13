@@ -180,7 +180,21 @@ module Q = struct
   let tag_by_name =
     (string ->? t2 int tag)
       "select id, name, description from tag where tag.name = ?"
+
+  let start_reading =
+    (int ->. unit)
+      "update entry set state = 'reading' where id = ? and state = 'to-read'"
+
+  let restart_reading =
+    (int ->. unit) "update entry set state = 'to-read' where id = ?"
+
+  let finish_reading =
+    (int ->. unit) "update entry set state = 'read' where id = ?"
 end
+
+type ('a, 'err) query =
+  (module Caqti_lwt.CONNECTION) ->
+  ('a, ([> Caqti_error.call_or_retrieve ] as 'err)) result Lwt.t
 
 let init_entries (module Conn : Caqti_lwt.CONNECTION) =
   Conn.exec Q.init_entries ()
@@ -222,3 +236,12 @@ let tag_by_id id (module Conn : Caqti_lwt.CONNECTION) = Conn.find Q.tag_by_id id
 
 let tag_by_name name (module Conn : Caqti_lwt.CONNECTION) =
   Conn.find_opt Q.tag_by_name name
+
+let start_reading id (module Conn : Caqti_lwt.CONNECTION) =
+  Conn.exec Q.start_reading id
+
+let restart_reading id (module Conn : Caqti_lwt.CONNECTION) =
+  Conn.exec Q.restart_reading id
+
+let finish_reading id (module Conn : Caqti_lwt.CONNECTION) =
+  Conn.exec Q.finish_reading id

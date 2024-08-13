@@ -28,74 +28,30 @@ end
 
 open Data
 
-val init_entries :
+type ('a, 'err) query =
   (module Caqti_lwt.CONNECTION) ->
-  (unit, [> Caqti_error.call_or_retrieve ]) result Lwt.t
+  ('a, ([> Caqti_error.call_or_retrieve ] as 'err)) result Lwt.t
 
-val init_tags :
-  (module Caqti_lwt.CONNECTION) ->
-  (unit, [> Caqti_error.call_or_retrieve ]) result Lwt.t
-
-val init_tag_entries :
-  (module Caqti_lwt.CONNECTION) ->
-  (unit, [> Caqti_error.call_or_retrieve ]) result Lwt.t
-
-val create_entry :
-  url:string ->
-  title:string ->
-  (module Caqti_lwt.CONNECTION) ->
-  (Entry.id, [> Caqti_error.call_or_retrieve ]) result Lwt.t
-
-val create_tag :
-  name:string ->
-  descr:string ->
-  (module Caqti_lwt.CONNECTION) ->
-  (Tag.id, [> Caqti_error.call_or_retrieve ]) result Lwt.t
-
-val tag_entry :
-  Entry.id ->
-  Tag.id ->
-  string option ->
-  (module Caqti_lwt.CONNECTION) ->
-  (unit, [> Caqti_error.call_or_retrieve ]) result Lwt.t
-
-val tag_entry' :
-  Entry.id ->
-  Tag.id list ->
-  (module Caqti_lwt.CONNECTION) ->
-  (unit, [> Caqti_error.call_or_retrieve ]) result Lwt.t
-
-val select_all_entries :
-  (module Caqti_lwt.CONNECTION) ->
-  ((Entry.id * Entry.t) list, [> Caqti_error.call_or_retrieve ]) result Lwt.t
+val init_entries : (unit, 'err) query
+val init_tags : (unit, 'err) query
+val init_tag_entries : (unit, 'err) query
+val create_entry : url:string -> title:string -> (Entry.id, 'err) query
+val create_tag : name:string -> descr:string -> (Tag.id, 'err) query
+val tag_entry : Entry.id -> Tag.id -> string option -> (unit, 'err) query
+val tag_entry' : Entry.id -> Tag.id list -> (unit, 'err) query
+val select_all_entries : ((Entry.id * Entry.t) list, 'err) query
 
 val select_filtered_entries :
   ?states:Entry.state list ->
   ?search:string ->
   ?tags:string list ->
-  (module Caqti_lwt.CONNECTION) ->
-  ((Entry.id * Entry.t) list, [> Caqti_error.call_or_retrieve ]) result Lwt.t
+  ((Entry.id * Entry.t) list, 'err) query
 
-val select_all_tags :
-  (module Caqti_lwt.CONNECTION) ->
-  ((Tag.id * Tag.t) list, [> Caqti_error.call_or_retrieve ]) result Lwt.t
-
-val select_tags_by_name :
-  string list ->
-  (module Caqti_lwt.CONNECTION) ->
-  ((Tag.id * Tag.t) list, [> Caqti_error.call_or_retrieve ]) result Lwt.t
-
-val entry_by_id :
-  Entry.id ->
-  (module Caqti_lwt.CONNECTION) ->
-  (Entry.t, [> Caqti_error.call_or_retrieve ]) result Lwt.t
-
-val tag_by_id :
-  Tag.id ->
-  (module Caqti_lwt.CONNECTION) ->
-  (Tag.t, [> Caqti_error.call_or_retrieve ]) result Lwt.t
-
-val tag_by_name :
-  string ->
-  (module Caqti_lwt.CONNECTION) ->
-  ((Tag.id * Tag.t) option, [> Caqti_error.call_or_retrieve ]) result Lwt.t
+val select_all_tags : ((Tag.id * Tag.t) list, 'err) query
+val select_tags_by_name : string list -> ((Tag.id * Tag.t) list, 'err) query
+val entry_by_id : Entry.id -> (Entry.t, 'err) query
+val tag_by_id : Tag.id -> (Tag.t, 'err) query
+val tag_by_name : string -> ((Tag.id * Tag.t) option, 'err) query
+val start_reading : Entry.id -> (unit, 'err) query
+val restart_reading : Entry.id -> (unit, 'err) query
+val finish_reading : Entry.id -> (unit, 'err) query

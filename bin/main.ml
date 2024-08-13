@@ -6,10 +6,5 @@ let () =
   @@ Dream.sql_sessions
      (* @@ Dream.livereload (* Doesn't work, breaks HTMX html fragments *) *)
   @@ Dream.router
-       ([
-          Dream.get "/" Main.page;
-          Dream.get "/search" (fun req -> Dream.redirect req "/");
-          Dream.post "/search" Main.search_response;
-          Dream.get "/assets/**" @@ Dream.static Sys.argv.(1);
-        ]
-       @ Add.routes)
+       ([ Dream.get "/assets/**" @@ Dream.static Sys.argv.(1) ]
+       @ Main.routes @ Add.routes)

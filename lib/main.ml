@@ -3,22 +3,64 @@ open! ContainersLabels
 open Db.Data
 open Route
 
-let entry_to_row (_, { url; Entry.title = title'; state; created_at; tags }) =
+let render_domain uri =
+  let domain = Uri.host_with_default ~default:"local" uri in
+  match Stringext.chop_prefix ~prefix:"www." domain with
+  | Some domain -> domain
+  | None -> domain
+
+let entry_to_row
+    ((entry_id, { url; title = title'; state; created_at; tags }) :
+      Entry.id * Entry.t) =
   let created_at =
     Timedesc.Utils.timestamp_of_ptime created_at
     |> Timedesc.of_timestamp_exn ~tz_of_date_time:Timedesc.Time_zone.utc
     |> Timedesc.to_string
          ~format:
            "{year}-{mon:0X}-{day:0X}T{hour:0X}:{min:0X}{tzoff-sign}{tzoff-hour:0X}{tzoff-min:0X}"
+  and common =
+    [
+      Hx.target "#search-results";
+      Hx.vals {|{"entry": %d}|} (entry_id :> int);
+      Hx.include_ "#input-container";
+    ]
   in
   HTML.(
     tr []
       [
-        td [] [ a [ HTML.href "%s" @@ Uri.to_string url ] [ txt "%s" title' ] ];
-        td [] [ txt "%s" @@ Entry.state_to_string state ];
-        td
-          [ class_ "time" ]
-          [ time [ datetime "%s" created_at ] [ txt "%s" created_at ] ];
+        td []
+          [
+            a
+              ([
+                 href "%s" @@ Uri.to_string url;
+                 Hx.post "/state/view";
+                 Hx.trigger "click";
+                 onclick "window.open(this.href, '_blank'); return false;";
+               ]
+              @ common)
+              [ txt "%s" title' ];
+            br [];
+            div [ class_ "entry-meta" ] [ txt "%s" (render_domain url) ];
+          ];
+        td []
+          [
+            txt "%s " @@ Entry.state_to_string state;
+            br [];
+            div
+              [ class_ "field-controls" ]
+              ((match state with
+               | To_read -> []
+               | Read | Reading ->
+                   [
+                     button
+                       ([ Hx.post "/state/reset" ] @ common)
+                       [ txt "Reset" ];
+                   ])
+              @ [
+                  button ([ Hx.post "/state/finish" ] @ common) [ txt "Finish" ];
+                ]);
+          ];
+        td [] [ time [ datetime "%s" created_at ] [ txt "%s" created_at ] ];
         List.map tags ~f:(function
           | name, Some value -> txt "%s(%s)" name value
           | name, None -> txt "%s" name)
@@ -41,7 +83,7 @@ let table_container entries =
                   [
                     th [] [ txt "Title" ];
                     th [] [ txt "State" ];
-                    th [] [ txt "Date" ];
+                    th [] [ txt "Date added" ];
                     th [] [ txt "Tags" ];
                   ];
               ];
@@ -145,30 +187,61 @@ let page =
       @@ Db.select_filtered_entries ~states:[ Entry.To_read; Entry.Reading ])
     main_page_template
 
+let search_query form req =
+  Dream.log "Form: %a"
+    (List.pp @@ fun fmt (k, v) -> Format.fprintf fmt "'%s': '%s'" k v)
+    form;
+  let search =
+    Option.(
+      form |> List.assoc_opt ~eq:String.equal "search" >>= function
+      | "" -> None
+      | s -> Some s)
+  and tags =
+    form
+    |> List.assoc_opt ~eq:String.equal "tags"
+    |> Option.get_or ~default:"" |> String.split ~by:","
+    |> List.map ~f:String.trim
+    |> List.filter ~f:(fun s -> String.(s <> ""))
+    |> List.map ~f:String.lowercase_ascii
+  and states =
+    form
+    |> List.filter_map ~f:(fun (k, v) ->
+           match Entry.state_of_string k with
+           | Some s when String.(v = "on") -> Some s
+           | _ -> None)
+  in
+  Dream.sql req @@ Db.select_filtered_entries ~tags ?search ~states
+
 let search_response =
+  Route.wrap_post_response search_query
+    Fun.(fun _ -> render_entries %> HTML.null)
+
+let state_handler query =
   Route.wrap_post_response
     (fun form req ->
       Dream.log "Form: %a"
         (List.pp @@ fun fmt (k, v) -> Format.fprintf fmt "'%s': '%s'" k v)
         form;
-      let search =
-        Option.(
-          form |> List.assoc_opt ~eq:String.equal "search" >>= function
-          | "" -> None
-          | s -> Some s)
-      and tags =
-        form
-        |> List.assoc_opt ~eq:String.equal "tags"
-        |> Option.get_or ~default:"" |> String.split ~by:","
-        |> List.map ~f:String.trim
-        |> List.filter ~f:(fun s -> String.(s <> ""))
-        |> List.map ~f:String.lowercase_ascii
-      and states =
-        form
-        |> List.filter_map ~f:(fun (k, v) ->
-               match Entry.state_of_string k with
-               | Some s when String.(v = "on") -> Some s
-               | _ -> None)
+      let id =
+        List.assoc ~eq:String.equal "entry" form
+        |> Int.of_string_exn |> Entry.id_of_int
       in
-      Dream.sql req @@ Db.select_filtered_entries ~tags ?search ~states)
+      let* res = Dream.sql req @@ query id in
+      match res with
+      | Error err -> Lwt.return @@ Error err
+      | Ok () -> search_query form req)
     Fun.(fun _ -> render_entries %> HTML.null)
+
+let view_response = state_handler Db.start_reading
+let reset_response = state_handler Db.restart_reading
+let finish_response = state_handler Db.finish_reading
+
+let routes =
+  [
+    Dream.get "/" page;
+    Dream.get "/search" (fun req -> Dream.redirect req "/");
+    Dream.post "/search" search_response;
+    Dream.post "/state/view" view_response;
+    Dream.post "/state/reset" reset_response;
+    Dream.post "/state/finish" finish_response;
+  ]

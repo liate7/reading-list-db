@@ -70,3 +70,7 @@ th {
 .tags-search {
     width: 20%;
 }
+
+.entry-meta {
+    font-size: .8em;
+}
