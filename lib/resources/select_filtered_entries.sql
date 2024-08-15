@@ -3,9 +3,13 @@ select entry.id,
        entry.title,
        entry.state,
        entry.created_at,
-       coalesce (
-         json_group_object(tag.name, tag_entry.payload),
-         '{}')
+	   coalesce (
+         json_group_array(
+		   json_array(
+		     json_object('name', tag.name, 'description', tag.description),
+			 tag_entry.payload)
+		 ),
+		 '{}')
   from
     entry
   left join
@@ -13,7 +17,9 @@ select entry.id,
   left join
     tag on tag.id = tag_entry.tag
   where ($1 is null or $1 is '' or entry.state in (select value from json_each($1)))
-    and ($2 is null or $2 is '' or entry.title like '%' || $2 || '%')
+    and ($2 is null or $2 is ''
+      or entry.title like '%' || $2 || '%'
+      or entry.url like '%' || $2 || '%')
     and ($3 is null or $3 is '' or (
       select count(distinct tag.name)
         from tag

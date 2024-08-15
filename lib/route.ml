@@ -25,7 +25,17 @@ let wrap_page vow_fn template req =
       Dream.log "%a@." Caqti_error.pp err;
       Dream.empty `Internal_Server_Error
 
-let get_forms req =
+let get_form :
+      'a.
+      form_getter:(?csrf:bool -> Dream.request -> 'a Dream.form_result Lwt.t) ->
+      Dream.request ->
+      ( 'a,
+        [> `Form_response of 'a Dream.form_result
+        | `Invalid_CSRF_token of string
+        | `No_CSRF_token ] )
+      result
+      Lwt.t =
+ fun ~form_getter req ->
   match Dream.header req "X-CSRF-Token" with
   | None -> Lwt.return (Error `No_CSRF_token)
   | Some tok -> (
@@ -33,13 +43,13 @@ let get_forms req =
       match state with
       | `Invalid -> Lwt.return (Error (`Invalid_CSRF_token tok))
       | `Expired _ | `Wrong_session | `Ok -> (
-          let+ form_res = Dream.form ~csrf:false req in
+          let+ form_res = form_getter ~csrf:false req in
           match form_res with
           | `Ok form -> Ok form
           | err -> Error (`Form_response err)))
 
 let wrap_post_response vow_fn template req =
-  let* res = get_forms req in
+  let* res = get_form ~form_getter:Dream.form req in
   match res with
   | Ok form -> (
       let* res = vow_fn form req in
@@ -55,3 +65,25 @@ let wrap_post_response vow_fn template req =
       Dream.log "Invalid CSRF token %s" token;
       Dream.empty `Bad_Request
   | Error (`Form_response _) -> Dream.empty `Bad_Request
+
+let basic_template ~title ~token body' =
+  let actual_title = HTML.title [] "%s - %s" app_name title in
+  HTML.(
+    html
+      [ lang "en" ]
+      [
+        head []
+          [
+            meta [ charset "UTF-8" ];
+            meta
+              [
+                name "viewport"; content "width=device-width, initial-scale=1.0";
+              ];
+            actual_title;
+            link [ href "/assets/style.css"; rel "stylesheet" ];
+            link [ href "/assets/favicon.png"; rel "icon" ];
+            script [ src "/assets/fixups.js" ] "";
+            htmx_script;
+          ];
+        body [ Hx.headers {|{"X-CSRF-Token": "%s"}|} token ] body';
+      ])

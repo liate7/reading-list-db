@@ -1,3 +1,7 @@
+* {
+    box-sizing: border-box;
+}
+
 body, html {
     margin: 0;
     padding: 0;
@@ -9,6 +13,7 @@ body, html {
     flex-direction: column;
     height: 100vh;
 }
+
 .table-container {
     flex-grow: 1;
     overflow-y: auto;
@@ -28,6 +33,37 @@ th {
     position: sticky;
     top: 0;
 }
+
+ul.entry-meta {
+    list-style: none;
+    margin-left: 0;
+    padding-left: 0;
+}
+.entry-meta li {
+    display: inline-block;
+    margin: 0;
+    padding: 0;
+}
+.entry-meta li:not(:last-child)::after {
+    content: "|";
+    padding-right: 3pt;
+    padding-left: 3pt;
+}
+time {
+    white-space: nowrap;
+}
+@media (max-width: 768px) {
+    .entry-meta li {
+        display: block;
+        margin: 0;
+    }
+    .entry-meta li:not(:last-child)::after {
+        content: none;
+        padding-right: none;
+        padding-left: none;
+    }
+}
+
 .input-container {
     background-color: #f2f2f2;
     padding: 10px;
@@ -36,6 +72,7 @@ th {
     display: flex;
     flex-direction: row;
     width: 100hh;
+    box-sizing: border-box;
 }
 
 .form-control {
@@ -48,10 +85,10 @@ th {
 
 .new-entry {
     display: flex;
-    flex-direction: row;
-    width: 90ch;
-    margin-left: 2ch;
-    margin-top: 2ch;
+    flex-direction: column;
+    max-width: 90ch;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .htmx-indicator {
@@ -63,14 +100,63 @@ th {
 
 .title-search {
     width: 65%;
+    display: flex;
+    flex-direction: row;
+}
+
+.meta-search-container {
+    width: 35%;
+    display: flex;
+    flex-direction: row;
 }
 .to-read-states {
-    width: 15%;
+    width: 45%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
 }
+.state-checkbox-container {
+    flex: 1 1 auto;
+    align-items: center;
+}
+
 .tags-search {
-    width: 20%;
+    width: 55%;
+}
+
+@media (max-width: 768px) {
+    .input-container {
+        width: 100%;
+        font-size: 90%;
+    }
+
+    .input-container {
+        flex-direction: column-reverse;
+    }
+
+    .title-search, .to-read-states, .tags-search, .meta-search-container {
+        width: 100%;
+        box-sizing: border-box;
+    }
 }
 
 .entry-meta {
     font-size: .8em;
+}
+
+.form-item {
+    width: 100%;
+    display: flex;
+}
+
+.label-text {
+    margin-right: 5pt;
+}
+
+.form-item input {
+    flex: 1;
+}
+
+.tag {
+    width: 100%
 }

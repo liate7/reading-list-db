@@ -9,63 +9,76 @@ let render_domain uri =
   | Some domain -> domain
   | None -> domain
 
-let entry_to_row
-    ((entry_id, { url; title = title'; state; created_at; tags }) :
-      Entry.id * Entry.t) =
+let entry_to_row : Entry.id * Entry.t -> node =
+ fun (entry_id, { url; title = title'; state; created_at; tags }) ->
   let created_at =
     Timedesc.Utils.timestamp_of_ptime created_at
     |> Timedesc.of_timestamp_exn ~tz_of_date_time:Timedesc.Time_zone.utc
     |> Timedesc.to_string
          ~format:
            "{year}-{mon:0X}-{day:0X}T{hour:0X}:{min:0X}{tzoff-sign}{tzoff-hour:0X}{tzoff-min:0X}"
-  and common =
-    [
-      Hx.target "#search-results";
-      Hx.vals {|{"entry": %d}|} (entry_id :> int);
-      Hx.include_ "#input-container";
-    ]
+  and with_htmx f attrs =
+    f
+      (attrs
+      @ [
+          Hx.target "#search-results";
+          Hx.vals {|{"entry": %d}|} (entry_id :> int);
+          Hx.include_ ".input-container";
+        ])
   in
   HTML.(
     tr []
       [
         td []
           [
-            a
-              ([
-                 href "%s" @@ Uri.to_string url;
-                 Hx.post "/state/view";
-                 Hx.trigger "click";
-                 onclick "window.open(this.href, '_blank'); return false;";
-               ]
-              @ common)
+            with_htmx a
+              [
+                href "%s" @@ Uri.to_string url;
+                Hx.post "/state/view";
+                Hx.trigger "click";
+                onclick "window.open(this.href, '_blank'); return false;";
+              ]
               [ txt "%s" title' ];
             br [];
-            div [ class_ "entry-meta" ] [ txt "%s" (render_domain url) ];
+            ul
+              [ class_ "entry-meta" ]
+              [
+                li [] [ txt "%s" (render_domain url) ];
+                li []
+                  [ time [ datetime "%s" created_at ] [ txt "%s" created_at ] ];
+              ];
           ];
+        List.map tags ~f:(fun ({ Tag.name; description }, value) ->
+            span
+              [ title_ "%s" description; class_ "tag" ]
+              [
+                (match value with
+                | Some value -> txt "%s(%s)" name value
+                | None -> txt "%s" name);
+              ])
+        |> List.intersperse ~x:(txt ", ")
+        |> td [];
         td []
           [
             txt "%s " @@ Entry.state_to_string state;
             br [];
             div
               [ class_ "field-controls" ]
-              ((match state with
-               | To_read -> []
-               | Read | Reading ->
-                   [
-                     button
-                       ([ Hx.post "/state/reset" ] @ common)
-                       [ txt "Reset" ];
-                   ])
-              @ [
-                  button ([ Hx.post "/state/finish" ] @ common) [ txt "Finish" ];
-                ]);
+              [
+                (match state with
+                | To_read -> null []
+                | Read | Reading ->
+                    with_htmx button
+                      [ Hx.post "/state/reset" ]
+                      [ txt "Restart" ]);
+                (match state with
+                | To_read | Reading ->
+                    with_htmx button
+                      [ Hx.post "/state/finish" ]
+                      [ txt "Finish" ]
+                | Read -> null []);
+              ];
           ];
-        td [] [ time [ datetime "%s" created_at ] [ txt "%s" created_at ] ];
-        List.map tags ~f:(function
-          | name, Some value -> txt "%s(%s)" name value
-          | name, None -> txt "%s" name)
-        |> List.intersperse ~x:(txt ", ")
-        |> td [];
       ])
 
 let render_entries entries = List.map entries ~f:entry_to_row
@@ -82,9 +95,8 @@ let table_container entries =
                 tr []
                   [
                     th [] [ txt "Title" ];
-                    th [] [ txt "State" ];
-                    th [] [ txt "Date added" ];
                     th [] [ txt "Tags" ];
+                    th [] [ txt "State" ];
                   ];
               ];
             tbody [ id "search-results" ] @@ render_entries entries;
@@ -92,100 +104,95 @@ let table_container entries =
       ])
 
 let input_container =
-  let common_htmx =
-    [
-      Hx.post "/search";
-      Hx.target "#search-results";
-      Hx.indicator ".htmx-indicator";
-      Hx.include_ "closest form";
-    ]
+  let input_field attrs =
+    HTML.(
+      input
+        (attrs
+        @ [
+            Hx.post "/search";
+            Hx.target "#search-results";
+            Hx.indicator ".htmx-indicator";
+            Hx.include_ "closest form";
+          ]))
   in
+  let make_state_checkbox ?(checked_ = false) ~state label_name =
+    HTML.(
+      div
+        [ class_ "state-checkbox-container" ]
+        [
+          label []
+            [
+              input_field
+                ([
+                   name "%s" state;
+                   id "%s" state;
+                   type_ "checkbox";
+                   Hx.trigger "click";
+                 ]
+                @ if checked_ then [ HTML.checked ] else []);
+              txt "%s" label_name;
+            ];
+        ])
+  in
+
   HTML.(
     form
       [ class_ "input-container" ]
       [
-        img
-          [
-            src "/assets/spinner.svg";
-            class_ "htmx-indicator";
-            alt "Loading indicator";
-          ];
         fieldset
           [ class_ "title-search" ]
           [
             legend [] [ txt "Search titles:" ];
-            input
-              ([
-                 class_ "form-control";
-                 type_ "search";
-                 name "search";
-                 placeholder "Search titles…";
-                 Hx.trigger "input changed delay:500ms, search";
-               ]
-              @ common_htmx);
-          ];
-        fieldset
-          [ name "state"; class_ "to-read-states" ]
-          (let checkbox_common =
-             [ type_ "checkbox"; Hx.trigger "click delay:500ms" ] @ common_htmx
-           in
-           [
-             legend [] [ txt "To-read state:" ];
-             input ([ name "to-read"; id "to-read"; checked ] @ checkbox_common);
-             label [ for_ "to-read" ] [ txt "To read" ];
-             input ([ name "reading"; id "reading"; checked ] @ checkbox_common);
-             label [ for_ "reading" ] [ txt "Reading" ];
-             input ([ name "read"; id "read" ] @ checkbox_common);
-             label [ for_ "read" ] [ txt "Read" ];
-           ]);
-        fieldset
-          [ class_ "tags-search" ]
-          [
-            legend [] [ txt "Tags (comma-separated):" ];
-            input
-              ([
-                 class_ "form-control";
-                 type_ "text";
-                 name "tags";
-                 placeholder "Comma, separated, list, of tags…";
-                 Hx.trigger "input changed delay:500ms, search";
-               ]
-              @ common_htmx);
-          ];
-      ])
-
-let main_page_template token entries =
-  HTML.(
-    html
-      [ lang "en" ]
-      [
-        head []
-          [
-            meta [ charset "UTF-8" ];
-            meta
+            input_field
               [
-                name "viewport"; content "width=device-width, initial-scale=1.0";
+                class_ "form-control";
+                type_ "search";
+                name "search";
+                placeholder "Search titles…";
+                Hx.trigger "input changed delay:500ms, search";
               ];
-            title [] "%s - Things to read" app_name;
-            link [ href "/assets/style.css"; rel "stylesheet" ];
-            script [ src "/assets/fix_dates.js" ] "";
-            htmx_script;
+            (* img *)
+            (*   [ *)
+            (*     src "/assets/spinner.svg"; *)
+            (*     class_ "htmx-indicator"; *)
+            (*     alt "Loading indicator"; *)
+            (*   ]; *)
           ];
-        body
-          [ Hx.headers {|{"X-CSRF-Token": "%s"}|} token ]
+        div
+          [ class_ "meta-search-container"; id "meta-search-container" ]
           [
-            div
-              [ class_ "entries" ]
-              [ table_container entries; input_container ];
+            fieldset
+              [ name "state"; class_ "to-read-states" ]
+              [
+                legend [] [ txt "State:" ];
+                make_state_checkbox ~checked_:true ~state:"to-read" "To read";
+                make_state_checkbox ~checked_:true ~state:"reading" "Reading";
+                make_state_checkbox ~state:"read" "Read";
+              ];
+            fieldset
+              [ class_ "tags-search" ]
+              [
+                legend [] [ txt "Tags:" ];
+                input_field
+                  [
+                    class_ "form-control";
+                    type_ "text";
+                    name "tags";
+                    placeholder "Comma, separated, list, of tags…";
+                    Hx.trigger "input changed delay:500ms, search";
+                  ];
+              ];
           ];
       ])
 
 let page =
-  wrap_page
-    (fun req ->
+  wrap_page (fun req ->
       Dream.sql req
       @@ Db.select_filtered_entries ~states:[ Entry.To_read; Entry.Reading ])
-    main_page_template
+  @@ fun token entries ->
+  Route.basic_template ~title:"Things to read" ~token
+    HTML.
+      [ div [ class_ "entries" ] [ table_container entries; input_container ] ]
 
 let search_query form req =
   Dream.log "Form: %a"
@@ -219,9 +226,6 @@ let search_response =
 let state_handler query =
   Route.wrap_post_response
     (fun form req ->
-      Dream.log "Form: %a"
-        (List.pp @@ fun fmt (k, v) -> Format.fprintf fmt "'%s': '%s'" k v)
-        form;
       let id =
         List.assoc ~eq:String.equal "entry" form
         |> Int.of_string_exn |> Entry.id_of_int

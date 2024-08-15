@@ -8,7 +8,13 @@ let tag_to_option (_, { Tag.name; description }) =
 
 let add_page_tags_template tags =
   let add_tag_attrs =
-    [ Hx.post "/add/tag"; Hx.target "#submitted-tags"; Hx.swap "beforeend" ]
+    [
+      Hx.post "/add/tag";
+      Hx.target "#submitted-tags";
+      Hx.swap "beforeend";
+      Hx.params "tag-name";
+      Hx.on_ ~event:"submit" "event.preventDefault();";
+    ]
   in
   HTML.(
     div
@@ -26,7 +32,7 @@ let add_page_tags_template tags =
                  name "tag-name";
                  id "tag-name";
                  Hx.trigger "keyup[key=='Enter']";
-                 Hx.on_ ~event:"after-request" "this.value=''";
+                 Hx.on_ ~event:"htmx:after-request" "this.value=''";
                ]
               @ add_tag_attrs);
             button
@@ -36,43 +42,61 @@ let add_page_tags_template tags =
         div [ id "submitted-tags" ] [];
       ])
 
-let add_page_template token (tags, _) =
+let referent_template =
   HTML.(
-    html
-      [ lang "en" ]
+    fieldset []
       [
-        head []
+        legend [] [ txt "Item:" ];
+        label
+          [ class_ "form-item" ]
           [
-            meta [ charset "UTF-8" ];
-            meta
-              [
-                name "viewport"; content "width=device-width, initial-scale=1.0";
-              ];
-            title [] "%s - Add an entry" app_name;
-            link [ href "/assets/style.css"; rel "stylesheet" ];
-            htmx_script;
+            span [ class_ "label-text" ] [ txt "URL:" ];
+            input [ name "url"; type_ "text" ];
           ];
-        body
-          [ Hx.headers {|{"X-CSRF-Token": "%s"}|} token ]
+        div []
           [
-            form
+            label
+              [ class_ "form-item" ]
               [
-                id "new-entry";
-                class_ "new-entry";
-                Hx.post "/add/";
-                Hx.include_ "#submitted-tags > .tag";
-              ]
-              [
-                label [ for_ "url" ] [ txt "URL: " ];
-                input [ name "url" ];
-                label [ for_ "title" ] [ txt "Title: " ];
-                input [ name "title" ];
-                label [ for_ "tags" ] [ txt "Tags: " ];
-                add_page_tags_template tags;
-                button [ id "submit-entry" ] [ txt "Submit entry" ];
+                span [ class_ "label-text" ] [ txt "File:" ];
+                input
+                  [
+                    name "file";
+                    id "file";
+                    type_ "file";
+                    accept "application/pdf,.html";
+                  ];
+                button
+                  [ onclick "document.getElementById('file').value = '';" ]
+                  [ txt "Clear file" ];
               ];
           ];
       ])
+
+let add_page_template token (tags, _) =
+  basic_template ~title:"Add an entry" ~token
+    HTML.
+      [
+        form
+          [
+            id "new-entry";
+            class_ "new-entry";
+            Hx.post "/add/";
+            enctype `formdata;
+          ]
+          [
+            referent_template;
+            fieldset []
+              [
+                legend [] [ txt "Title:" ];
+                input
+                  [ name "title"; type_ "text"; class_ "form-item"; required ];
+              ];
+            fieldset []
+              [ legend [] [ txt "Tags: " ]; add_page_tags_template tags ];
+            div [] [ button [ class_ "submit-entry" ] [ txt "Submit entry" ] ];
+          ];
+      ]
 
 let page =
   wrap_page
@@ -88,21 +112,37 @@ let tag_template tag =
       [ name "%s" tag.Tag.name; class_ "tag" ]
       [
         input [ type_ "hidden"; name "tag"; value "%s" tag.name ];
-        output [ name "%s" tag.name ] [ txt "%s (%s)" tag.name tag.description ];
+        output
+          [ name "%s" tag.name ]
+          [
+            txt "%s (%s)" tag.name
+              (if String.is_empty tag.description then "none"
+               else tag.description);
+          ];
         button
-          [ Hx.delete "/add/remove-tag"; Hx.target "closest div" ]
+          [
+            Hx.delete "/add/remove-tag";
+            Hx.target "closest div";
+            Hx.params "tag";
+          ]
           [ txt "Remove" ];
       ])
 
 let create_tag_template tag_name =
   let new_tag_attrs =
-    [ Hx.post "/add/new-tag"; Hx.include_ "closest form"; Hx.swap "outerHTML" ]
+    [
+      Hx.post "/add/new-tag";
+      Hx.include_ "closest .tag-creation-container";
+      Hx.swap "outerHTML";
+      Hx.target "closest .tag-creation-container";
+      Hx.on_ ~event:"submit" "event.preventDefault();";
+    ]
   in
   HTML.(
-    form
-      [ name "%s" tag_name ]
+    div
+      [ name "%s" tag_name; class_ "tag-creation-container" ]
       [
-        input [ type_ "hidden"; name "tag-name"; value "%s" tag_name ];
+        input [ type_ "hidden"; name "new-tag-name"; value "%s" tag_name ];
         output [ name "%s" tag_name ] [ txt "%s (" tag_name ];
         input
           ([
@@ -110,6 +150,7 @@ let create_tag_template tag_name =
              name "description";
              placeholder "Enter description";
              Hx.trigger "keyup[key=='Enter']";
+             class_ "form-input";
            ]
           @ new_tag_attrs);
         txt ")";
@@ -117,8 +158,8 @@ let create_tag_template tag_name =
         button
           [
             Hx.delete "/add/remove-tag";
-            Hx.target "closest div";
-            (* Hx.replace_url "outerHTML"; *)
+            Hx.target "closest .tag-creation-container";
+            Hx.trigger "click";
           ]
           [ txt "Cancel" ];
       ])
@@ -147,56 +188,79 @@ let new_tag_response =
         form;
       let name =
         form
-        |> List.assoc ~eq:String.equal "tag-name"
+        |> List.assoc ~eq:String.equal "new-tag-name"
         |> String.lowercase_ascii |> String.trim
       and descr = form |> List.assoc ~eq:String.equal "description" in
       let+ res = Dream.sql req @@ Db.create_tag ~name ~descr in
       res |> Result.map (fun _ -> Tag.{ name; description = descr }))
     (fun _ -> tag_template)
 
+let ( let*! ) vow body =
+  let* res = vow in
+  match res with Ok v -> body v | Error e -> Lwt.return @@ Error e
+
+let ( let+! ) res body =
+  let*! res = Lwt.return res in
+  body res
+
+let ( and+! ) = Result.both
+
 let assoc_all ~eq key assoc =
   assoc |> List.filter_map ~f:(fun (k, v) -> if eq k key then Some v else None)
 
-let response req =
-  let ( let*! ) vow body =
-    let* res = vow in
-    match res with Ok v -> body v | Error e -> Lwt.return @@ Error e
+let list_unpack = function
+  | [ x ] -> Ok x
+  | list -> Error (`Not_a_singleton list)
+
+(* let validate_url url =  *)
+
+let add_entry ~url ~file ~tags ~title
+    ((module Conn : Caqti_lwt.CONNECTION) as conn) =
+  Conn.with_transaction @@ fun () ->
+  let*! url, _hash =
+    match (url, file) with
+    | _, Some (_, contents) ->
+        let*! hash = Cas.write Cas.Pdf contents conn in
+        Lwt.return @@ Result.return
+        @@ (Printf.sprintf "/local/%s" (hash :> string), Some hash)
+    | "", None -> Lwt.return @@ Error (`Missing "referent")
+    | url, None -> Lwt.return @@ Result.return (url, None)
   in
-  let ( let+! ) res body =
-    let*! res = Lwt.return res in
-    body res
-  and ( and+! ) = Result.both in
+  let*! tag_ids = Db.select_tags_by_name tags conn in
+  let tag_ids = tag_ids |> List.map ~f:(fun (i, _) -> i) in
+  let*! () =
+    Lwt.return
+    @@
+    if List.compare_lengths tags tag_ids = 0 then Ok () else Error `Invalid_tags
+  in
+  let*! entry = Db.create_entry ~url ~title conn in
+  let*! () = Db.multi_tag_entry entry tag_ids conn in
+  Lwt.return @@ Result.return ()
+
+let response req =
   let* res =
-    let*! form = get_forms req in
+    let*! form = get_form ~form_getter:Dream.multipart req in
+    Dream.log "%a"
+      (List.pp (fun fmt (name, _) -> Format.fprintf fmt "%s: …" name))
+      form;
     let eq = String.equal in
-    let tags =
-      form |> assoc_all ~eq "tag" |> List.sort_uniq ~cmp:String.compare
-    in
+    let tags = form |> List.assoc ~eq "tag" |> List.map ~f:(fun (_, v) -> v) in
     let+! title =
       form |> List.assoc ~eq "title" |> function
-      | "" -> Error (`Missing "title")
-      | s -> Ok s
-    and+! url =
-      form |> List.assoc ~eq "url" |> function
-      | "" -> Error (`Missing "url")
-      | s -> Ok s
+      | [ (None, "") ] | [] -> Error (`Missing "url")
+      | [ (None, title) ] -> Ok title
+      | _ -> assert false
+    and+! _, url = form |> List.assoc ~eq "url" |> list_unpack in
+    let file =
+      form |> List.assoc_opt ~eq "file" |> function
+      | None -> None
+      | Some [] -> None
+      | Some [ elt ] -> Some elt
+      | _ -> assert false
     in
-    Dream.sql req @@ fun (module Conn : Caqti_lwt.CONNECTION) ->
-    Conn.with_transaction @@ fun () ->
-    let*! tag_ids = Db.select_tags_by_name tags (module Conn) in
-    let tag_ids = tag_ids |> List.map ~f:(fun (i, _) -> i) in
-    let*! () =
-      Lwt.return
-      @@
-      if List.compare_lengths tags tag_ids = 0 then Ok ()
-      else Error `Invalid_tags
-    in
-    let*! entry = Db.create_entry ~url ~title (module Conn) in
-    Db.tag_entry' entry tag_ids (module Conn)
+    Dream.sql req @@ add_entry ~url ~file ~title ~tags
   in
-  match res with
-  | Ok () -> Dream.redirect req "/"
-  | Error _ -> Dream.empty `Bad_Request
+  match res with Ok () -> page req | Error _ -> Dream.empty `Bad_Request
 
 let routes =
   [

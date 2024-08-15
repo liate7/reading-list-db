@@ -1,6 +1,15 @@
 open! ContainersLabels
 
 module Data = struct
+  open Ppx_yojson_conv_lib.Yojson_conv.Primitives
+
+  module Tag = struct
+    type t = { name : string; description : string } [@@deriving yojson]
+    type id = int
+
+    let id_of_int = Fun.id
+  end
+
   module Entry = struct
     type state = To_read | Reading | Read
 
@@ -20,45 +29,27 @@ module Data = struct
       title : string;
       state : state;
       created_at : Ptime.t;
-      tags : (string * string option) list;
+      tags : (Tag.t * string option) list;
     }
 
     type id = int
 
     let id_of_int = Fun.id
-
-    let tags_to_yojson tags =
-      `Assoc
-        (List.map
-           ~f:(function
-             | key, Some value -> (key, `String value)
-             | key, None -> (key, `Null))
-           tags)
-
-    let tags_of_yojson json =
-      Yojson.Safe.Util.to_assoc json
-      |> List.map ~f:(fun (key, value) ->
-             (key, Yojson.Safe.Util.to_string_option value))
+    let tags_to_yojson = [%yojson_of: (Tag.t * string option) list]
+    let tags_of_yojson = [%of_yojson: (Tag.t * string option) list]
 
     let to_string { url; title; state; created_at = _; tags } =
       let tags_str =
         tags
         |> List.map ~f:(function
-             | key, Some value -> [%string "%{key}: %{value}"]
-             | key, None -> key)
+             | key, Some value -> [%string "%{key.Tag.name}: %{value}"]
+             | key, None -> key.Tag.name)
         |> String.concat ~sep:", "
       in
       let tags_str = match tags_str with "" -> "" | s -> ": " ^ s in
       [%string
         "[[%{Uri.to_string url}][%{title}]](%{state_to_string \
          state})%{tags_str}"]
-  end
-
-  module Tag = struct
-    type t = { name : string; description : string }
-    type id = int
-
-    let id_of_int = Fun.id
   end
 end
 
@@ -93,7 +84,7 @@ module Q = struct
             Yojson.Safe.(from_string str |> Util.to_list)
             |> List.map ~f:of_json |> Result.return)
 
-  let tag_list =
+  let tag_name_list =
     list ~of_json:Yojson.Safe.Util.to_string ~to_json:(fun str -> `String str)
 
   let tag_id_list =
@@ -115,7 +106,7 @@ module Q = struct
           Yojson.Safe.from_string tags |> Entry.tags_of_yojson |> Result.return
         with Yojson.Json_error str -> Error str)
 
-  let to_read =
+  let entry =
     let open Entry in
     let intro url title state created_at tags =
       { url; title; state; created_at; tags }
@@ -142,6 +133,11 @@ module Q = struct
   let init_tag_entries =
     (unit ->. unit) [%blob "resources/init_tag_entries.sql"]
 
+  let init_dream_sessions =
+    (unit ->. unit) [%blob "resources/init_dream_sessions.sql"]
+
+  let init_cas = (unit ->. unit) [%blob "resources/init_cas.sql"]
+
   let create_entry =
     (t2 string string ->! int) [%blob "resources/create_entry.sql"]
 
@@ -151,28 +147,28 @@ module Q = struct
     (t3 int int (option string) ->. unit)
       "insert or replace into tag_entry (entry, tag, payload) values (?, ?, ?)"
 
-  let tag_entry' =
+  let multi_tag_entry =
     (t2 int tag_id_list ->. unit)
       {|insert or replace into tag_entry (entry, tag)
        select ?, id from tag
          where tag.id in (select value from json_each(?))|}
 
   let select_all_entries =
-    (unit ->* t2 int to_read) [%blob "resources/select_all_entries.sql"]
+    (unit ->* t2 int entry) [%blob "resources/select_all_entries.sql"]
 
   let select_filtered_entries =
-    (t3 state_list (option string) tag_list ->* t2 int to_read)
+    (t3 state_list (option string) tag_name_list ->* t2 int entry)
       [%blob "resources/select_filtered_entries.sql"]
 
   let select_all_tags =
     (unit ->* t2 int tag) "select id, name, description from tag"
 
   let select_tags_by_name =
-    (tag_list ->* t2 int tag)
+    (tag_name_list ->* t2 int tag)
       "select id, name, description from tag where name in (select value from \
        json_each(?))"
 
-  let entry_by_id = (int ->! to_read) [%blob "resources/entry_by_id.sql"]
+  let entry_by_id = (int ->! entry) [%blob "resources/entry_by_id.sql"]
 
   let tag_by_id =
     (int ->! tag) "select name, description from tag where tag.id = ?"
@@ -196,6 +192,8 @@ type ('a, 'err) query =
   (module Caqti_lwt.CONNECTION) ->
   ('a, ([> Caqti_error.call_or_retrieve ] as 'err)) result Lwt.t
 
+(*** Query wrappers ***)
+
 let init_entries (module Conn : Caqti_lwt.CONNECTION) =
   Conn.exec Q.init_entries ()
 
@@ -203,6 +201,11 @@ let init_tags (module Conn : Caqti_lwt.CONNECTION) = Conn.exec Q.init_tags ()
 
 let init_tag_entries (module Conn : Caqti_lwt.CONNECTION) =
   Conn.exec Q.init_tag_entries ()
+
+let init_dream_sessions (module Conn : Caqti_lwt.CONNECTION) =
+  Conn.exec Q.init_dream_sessions ()
+
+let init_cas (module Conn : Caqti_lwt.CONNECTION) = Conn.exec Q.init_cas ()
 
 let create_entry ~url ~title (module Conn : Caqti_lwt.CONNECTION) =
   Conn.find Q.create_entry (url, title)
@@ -213,8 +216,8 @@ let create_tag ~name ~descr (module Conn : Caqti_lwt.CONNECTION) =
 let tag_entry entry_id tag_id payload (module Conn : Caqti_lwt.CONNECTION) =
   Conn.exec Q.tag_entry (entry_id, tag_id, payload)
 
-let tag_entry' entry_id tag_ids (module Conn : Caqti_lwt.CONNECTION) =
-  Conn.exec Q.tag_entry' (entry_id, tag_ids)
+let multi_tag_entry entry_id tag_ids (module Conn : Caqti_lwt.CONNECTION) =
+  Conn.exec Q.multi_tag_entry (entry_id, tag_ids)
 
 let select_all_entries (module Conn : Caqti_lwt.CONNECTION) =
   Conn.collect_list Q.select_all_entries ()
@@ -245,3 +248,18 @@ let restart_reading id (module Conn : Caqti_lwt.CONNECTION) =
 
 let finish_reading id (module Conn : Caqti_lwt.CONNECTION) =
   Conn.exec Q.finish_reading id
+
+(*** Nontrivial functions ***)
+let ( let* ) = Lwt.Infix.( >>= )
+
+let ( let*! ) vow f =
+  let* v = vow in
+  match v with Ok v -> f v | Error err -> Lwt.return (Error err)
+
+let init_db (module Conn : Caqti_lwt.CONNECTION) =
+  Conn.with_transaction @@ fun () ->
+  let*! () = Conn.exec Q.init_entries () in
+  let*! () = Conn.exec Q.init_tags () in
+  let*! () = Conn.exec Q.init_dream_sessions () in
+  let*! () = Conn.exec Q.init_cas () in
+  Lwt.return @@ Result.return ()

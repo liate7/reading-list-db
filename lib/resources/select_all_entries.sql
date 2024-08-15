@@ -4,7 +4,11 @@ select entry.id,
        entry.state,
        entry.created_at,
 	   coalesce (
-         json_group_object(tag.name, tag_entry.payload),
+         json_group_array(
+		   json_array(
+		     json_object('name', tag.name, 'description', tag.description),
+			 tag_entry.payload)
+		 ),
 		 '{}')
   from
     entry

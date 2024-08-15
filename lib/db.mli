@@ -1,4 +1,11 @@
 module Data : sig
+  module Tag : sig
+    type t = { name : string; description : string }
+    type id = private int
+
+    val id_of_int : int -> id
+  end
+
   module Entry : sig
     type state = To_read | Reading | Read
 
@@ -7,7 +14,7 @@ module Data : sig
       title : string;
       state : state;
       created_at : Ptime.t;
-      tags : (string * string option) list;
+      tags : (Tag.t * string option) list;
     }
 
     type id = private int
@@ -16,13 +23,6 @@ module Data : sig
     val state_to_string : state -> string
     val state_of_string : string -> state option
     val to_string : t -> string
-  end
-
-  module Tag : sig
-    type t = { name : string; description : string }
-    type id = private int
-
-    val id_of_int : int -> id
   end
 end
 
@@ -35,10 +35,12 @@ type ('a, 'err) query =
 val init_entries : (unit, 'err) query
 val init_tags : (unit, 'err) query
 val init_tag_entries : (unit, 'err) query
+val init_dream_sessions : (unit, 'err) query
+val init_cas : (unit, 'err) query
 val create_entry : url:string -> title:string -> (Entry.id, 'err) query
 val create_tag : name:string -> descr:string -> (Tag.id, 'err) query
 val tag_entry : Entry.id -> Tag.id -> string option -> (unit, 'err) query
-val tag_entry' : Entry.id -> Tag.id list -> (unit, 'err) query
+val multi_tag_entry : Entry.id -> Tag.id list -> (unit, 'err) query
 val select_all_entries : ((Entry.id * Entry.t) list, 'err) query
 
 val select_filtered_entries :
@@ -55,3 +57,6 @@ val tag_by_name : string -> ((Tag.id * Tag.t) option, 'err) query
 val start_reading : Entry.id -> (unit, 'err) query
 val restart_reading : Entry.id -> (unit, 'err) query
 val finish_reading : Entry.id -> (unit, 'err) query
+
+val init_db : (unit, [> Caqti_error.transact ]) query
+(** Initialize a database for the application *)
