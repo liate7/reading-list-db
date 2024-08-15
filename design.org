@@ -22,7 +22,8 @@ What html generation library?
 ** Choice
 going with Dream + dream-html stack, bcs htmx and easing into webdev
 
-* MVP
+* DONE MVP
+CLOSED: [2024-08-14 Wed 23:08]
 Schema like:
 #+begin_src sql
   create table entry (
@@ -67,3 +68,16 @@ So routes probably like:
 - ~/add~: for adding an entry, parameter for seed url (or file data?)
 - ~/view/:external_id~: for viewing
   does ~to-read~ -> ~reading~ state transition, then redirects or returns
+
+* Up next
+** TODO Polish [0/3]
+- [ ] Bar at top of base template with links between views
+- [ ] Actual validation
+- [ ] Actual error handling
+** TODO Features [/]
+- [ ] Suggest title from source
+- [ ] Auto-download ~pdf~ urls
+- [ ] command-line importer
+** Farther future
+- Add notes db
+- ML categorization
