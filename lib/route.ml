@@ -13,6 +13,7 @@ let htmx_script =
         integrity
           "sha384-QWGpdj554B4ETpJJC9z+ZHJcA/i59TyjxEPXiiUgN2WmTyV5OEZWCD6gQhgkdpB/";
         crossorigin `anonymous;
+        defer;
       ]
       "")
 
@@ -82,7 +83,7 @@ let basic_template ~title ~token body' =
             actual_title;
             link [ href "/assets/style.css"; rel "stylesheet" ];
             link [ href "/assets/favicon.png"; rel "icon" ];
-            script [ src "/assets/fixups.js" ] "";
+            script [ src "/assets/fixups.js"; defer ] "";
             htmx_script;
           ];
         body [ Hx.headers {|{"X-CSRF-Token": "%s"}|} token ] body';
