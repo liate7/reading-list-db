@@ -42,7 +42,7 @@ let add_page_tags_template tags =
         div [ id "submitted-tags" ] [];
       ])
 
-let referent_template =
+let referent_template url =
   HTML.(
     fieldset []
       [
@@ -51,7 +51,12 @@ let referent_template =
           [ class_ "form-item" ]
           [
             span [ class_ "label-text" ] [ txt "URL:" ];
-            input [ name "url"; type_ "text" ];
+            input
+              [
+                name "url";
+                type_ "text";
+                (match url with Some url -> value "%s" url | None -> null_);
+              ];
           ];
         div []
           [
@@ -67,13 +72,16 @@ let referent_template =
                     accept "application/pdf,.html";
                   ];
                 button
-                  [ onclick "document.getElementById('file').value = '';" ]
+                  [
+                    onclick "document.getElementById('file').value = '';";
+                    Hx.on_ ~event:"submit" "event.preventDefault();";
+                  ]
                   [ txt "Clear file" ];
               ];
           ];
       ])
 
-let add_page_template token (tags, _) =
+let add_page_template token (tags, url, title') =
   basic_template ~title:"Add an entry" ~token
     HTML.
       [
@@ -81,16 +89,24 @@ let add_page_template token (tags, _) =
           [
             id "new-entry";
             class_ "new-entry";
-            Hx.post "/add/";
+            Hx.post "/add";
             enctype `formdata;
           ]
           [
-            referent_template;
+            referent_template url;
             fieldset []
               [
                 legend [] [ txt "Title:" ];
                 input
-                  [ name "title"; type_ "text"; class_ "form-item"; required ];
+                  [
+                    name "title";
+                    type_ "text";
+                    class_ "form-item";
+                    required;
+                    (match title' with
+                    | Some title -> value "%s" title
+                    | None -> null_);
+                  ];
               ];
             fieldset []
               [ legend [] [ txt "Tags: " ]; add_page_tags_template tags ];
@@ -101,9 +117,9 @@ let add_page_template token (tags, _) =
 let page =
   wrap_page
     (fun req ->
-      Dream.sql req @@ fun conn ->
-      let+ t = Db.select_all_tags conn in
-      Result.(t >|= fun t -> (t, ())))
+      let+ t = Dream.sql req @@ fun conn -> Db.select_all_tags conn in
+      Result.(
+        t >|= fun t -> (t, Dream.query req "url", Dream.query req "title")))
     add_page_template
 
 let tag_template tag =
@@ -264,9 +280,11 @@ let response req =
 
 let routes =
   [
-    Dream.get "/add/" page;
-    Dream.post "/add/" response;
+    Dream.any "/add/" (fun req ->
+        Dream.redirect ~status:`Moved_Permanently req "/add");
+    Dream.get "/add" page;
+    Dream.post "/add" response;
     Dream.post "/add/tag" add_tag_response;
     Dream.post "/add/new-tag" new_tag_response;
-    (Dream.delete "/add/remove-tag" @@ fun _ -> Dream.html "");
+    Dream.delete "/add/remove-tag" (fun _ -> Dream.html "");
   ]
