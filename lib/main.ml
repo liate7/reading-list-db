@@ -43,9 +43,12 @@ let entry_to_row : Entry.id * Entry.t -> node =
             ul
               [ class_ "entry-meta" ]
               [
-                li [] [ txt "%s" (render_domain url) ];
+                li [] [ txt "From: %s" (render_domain url) ];
                 li []
-                  [ time [ datetime "%s" created_at ] [ txt "%s" created_at ] ];
+                  [
+                    txt "Added: ";
+                    time [ datetime "%s" created_at ] [ txt "%s" created_at ];
+                  ];
               ];
           ];
         List.map tags ~f:(fun ({ Tag.name; description }, value) ->
