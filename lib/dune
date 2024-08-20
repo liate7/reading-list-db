@@ -16,4 +16,4 @@
  (preprocess
   (pps ppx_string ppx_compare ppx_yojson_conv ppx_blob))
  (preprocessor_deps
-   (glob_files resources/*)))
+  (glob_files resources/*)))

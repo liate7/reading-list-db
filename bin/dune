@@ -17,8 +17,22 @@
 
 (executable
  (name init_db)
- (libraries reading_list lwt containers caqti caqti-lwt.unix caqti-driver-sqlite3))
+ (public_name init-db)
+ (libraries
+  reading_list
+  lwt
+  containers
+  caqti
+  caqti-lwt.unix
+  caqti-driver-sqlite3))
 
 (executable
  (name rehash_all)
- (libraries reading_list lwt containers caqti caqti-lwt.unix caqti-driver-sqlite3))
+ (public_name rehash-all)
+ (libraries
+  reading_list
+  lwt
+  containers
+  caqti
+  caqti-lwt.unix
+  caqti-driver-sqlite3))
