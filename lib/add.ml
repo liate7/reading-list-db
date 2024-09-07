@@ -87,10 +87,7 @@ let add_page_template token (tags, url, title') =
       [
         form
           [
-            id "new-entry";
-            class_ "new-entry";
-            Hx.post "/add";
-            enctype `formdata;
+            id "new-entry"; class_ "new-entry"; method_ `POST; enctype `formdata;
           ]
           [
             referent_template url;
@@ -140,6 +137,7 @@ let tag_template tag =
             Hx.delete "/add/remove-tag";
             Hx.target "closest div";
             Hx.params "tag";
+            Hx.on_ ~event:"submit" "event.preventDefault();";
           ]
           [ txt "Remove" ];
       ])
@@ -176,6 +174,7 @@ let create_tag_template tag_name =
             Hx.delete "/add/remove-tag";
             Hx.target "closest .tag-creation-container";
             Hx.trigger "click";
+            Hx.on_ ~event:"submit" "event.preventDefault();";
           ]
           [ txt "Cancel" ];
       ])
@@ -260,7 +259,10 @@ let response req =
       (List.pp (fun fmt (name, _) -> Format.fprintf fmt "%s: …" name))
       form;
     let eq = String.equal in
-    let tags = form |> List.assoc ~eq "tag" |> List.map ~f:(fun (_, v) -> v) in
+    let tags =
+      form |> List.assoc_opt ~eq "tag" |> Option.get_or ~default:[]
+      |> List.map ~f:(fun (_, v) -> v)
+    in
     let+! title =
       form |> List.assoc ~eq "title" |> function
       | [ (None, "") ] | [] -> Error (`Missing "url")
@@ -276,7 +278,9 @@ let response req =
     in
     Dream.sql req @@ add_entry ~url ~file ~title ~tags
   in
-  match res with Ok () -> page req | Error _ -> Dream.empty `Bad_Request
+  match res with
+  | Ok () -> Dream.redirect req "/"
+  | Error _ -> Dream.empty `Bad_Request
 
 let routes =
   [

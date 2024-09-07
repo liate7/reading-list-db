@@ -24,6 +24,7 @@
           yojson ppx_yojson_conv
           timedesc
           ppx_string ppx_compare ppx_blob
-          (ocamlformat :dev) (merlin :dev) (utop :dev) (ocaml-print-intf :dev) (odig :dev)))
+          (ocamlformat :with-dev-setup) (merlin :with-dev-setup) (utop :with-dev-setup)
+          (ocaml-print-intf :with-dev-setup) (odig :with-dev-setup)))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/reference/dune-project/index.html

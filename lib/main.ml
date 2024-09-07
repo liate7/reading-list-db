@@ -1,5 +1,5 @@
 open Dream_html
-open! ContainersLabels
+open ContainersLabels
 open Db.Data
 open Route
 
@@ -51,14 +51,8 @@ let entry_to_row : Entry.id * Entry.t -> node =
                   ];
               ];
           ];
-        List.map tags ~f:(fun ({ Tag.name; description }, value) ->
-            span
-              [ title_ "%s" description; class_ "tag" ]
-              [
-                (match value with
-                | Some value -> txt "%s(%s)" name value
-                | None -> txt "%s" name);
-              ])
+        List.map tags ~f:(fun { Tag.name; description } ->
+            span [ title_ "%s" description; class_ "tag" ] [ txt "%s" name ])
         |> List.intersperse ~x:(txt ", ")
         |> td [];
         td []

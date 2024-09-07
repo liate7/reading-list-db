@@ -4,7 +4,9 @@ module Data = struct
   open Ppx_yojson_conv_lib.Yojson_conv.Primitives
 
   module Tag = struct
-    type t = { name : string; description : string } [@@deriving yojson]
+    type t = { name : string; description : string }
+    [@@deriving yojson] [@@yojson.allow_extra_fields]
+
     type id = int
 
     let id_of_int = Fun.id
@@ -29,22 +31,18 @@ module Data = struct
       title : string;
       state : state;
       created_at : Ptime.t;
-      tags : (Tag.t * string option) list;
+      tags : Tag.t list;
     }
 
     type id = int
 
     let id_of_int = Fun.id
-    let tags_to_yojson = [%yojson_of: (Tag.t * string option) list]
-    let tags_of_yojson = [%of_yojson: (Tag.t * string option) list]
+    let tags_to_yojson = [%yojson_of: Tag.t list]
+    let tags_of_yojson = [%of_yojson: Tag.t list]
 
     let to_string { url; title; state; created_at = _; tags } =
       let tags_str =
-        tags
-        |> List.map ~f:(function
-             | key, Some value -> [%string "%{key.Tag.name}: %{value}"]
-             | key, None -> key.Tag.name)
-        |> String.concat ~sep:", "
+        tags |> List.map ~f:(fun key -> key.Tag.name) |> String.concat ~sep:", "
       in
       let tags_str = match tags_str with "" -> "" | s -> ": " ^ s in
       [%string

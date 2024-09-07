@@ -3,13 +3,17 @@ select entry.id,
        entry.title,
        entry.state,
        entry.created_at,
-	   coalesce (
+	   case
+	     when count(tag.id) = 0 then '[]'
+		 else 
          json_group_array(
-		   json_array(
-		     json_object('name', tag.name, 'description', tag.description),
-			 tag_entry.payload)
-		 ),
-		 '{}')
+		     json_object(
+			   'name', tag.name,
+			   'description', tag.description,
+			   'payload', tag_entry.payload
+			 )
+		 )
+	   end as tags
   from
     entry
   left join

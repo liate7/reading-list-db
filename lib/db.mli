@@ -14,7 +14,7 @@ module Data : sig
       title : string;
       state : state;
       created_at : Ptime.t;
-      tags : (Tag.t * string option) list;
+      tags : Tag.t list;
     }
 
     type id = private int

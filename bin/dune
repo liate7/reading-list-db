@@ -36,3 +36,14 @@
   caqti
   caqti-lwt.unix
   caqti-driver-sqlite3))
+
+(executable
+ (name add_entry)
+ (public_name add-entry)
+ (libraries
+  reading_list
+  lwt
+  containers
+  caqti
+  caqti-lwt.unix
+  caqti-driver-sqlite3))

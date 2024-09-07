@@ -37,17 +37,19 @@ let get_form :
       result
       Lwt.t =
  fun ~form_getter req ->
-  match Dream.header req "X-CSRF-Token" with
-  | None -> Lwt.return (Error `No_CSRF_token)
-  | Some tok -> (
-      let* state = Dream.verify_csrf_token req tok in
-      match state with
-      | `Invalid -> Lwt.return (Error (`Invalid_CSRF_token tok))
-      | `Expired _ | `Wrong_session | `Ok -> (
-          let+ form_res = form_getter ~csrf:false req in
-          match form_res with
-          | `Ok form -> Ok form
-          | err -> Error (`Form_response err)))
+  (* match Dream.header req "X-CSRF-Token" with
+     | None -> Lwt.return (Error `No_CSRF_token)
+     | Some tok -> (
+         let* state = Dream.verify_csrf_token req tok in
+         match state with
+         | `Invalid -> Lwt.return (Error (`Invalid_CSRF_token tok))
+         | `Expired _ | `Wrong_session | `Ok -> (
+             let+ form_res = form_getter ~csrf:false req in
+             match form_res with
+             | `Ok form -> Ok form
+             | err -> Error (`Form_response err))) *)
+  let+ form_res = form_getter ~csrf:false req in
+  match form_res with `Ok form -> Ok form | err -> Error (`Form_response err)
 
 let wrap_post_response vow_fn template req =
   let* res = get_form ~form_getter:Dream.form req in
@@ -66,6 +68,10 @@ let wrap_post_response vow_fn template req =
       Dream.log "Invalid CSRF token %s" token;
       Dream.empty `Bad_Request
   | Error (`Form_response _) -> Dream.empty `Bad_Request
+
+let header_elt : url:string -> content:string -> node =
+ fun ~url ~content:content' ->
+  HTML.(li [] [ a [ href "%s" url ] [ txt "%s" content' ] ])
 
 let basic_template ~title ~token body' =
   let actual_title = HTML.title [] "%s - %s" app_name title in
@@ -86,5 +92,20 @@ let basic_template ~title ~token body' =
             script [ src "/assets/fixups.js"; defer ] "";
             htmx_script;
           ];
-        body [ Hx.headers {|{"X-CSRF-Token": "%s"}|} token ] body';
+        body
+          [ Hx.headers {|{"X-CSRF-Token": "%s"}|} token ]
+          (header
+             [ class_ "header" ]
+             [
+               nav
+                 [ class_ "nav" ]
+                 [
+                   ul []
+                     [
+                       header_elt ~url:"/" ~content:"Main";
+                       header_elt ~url:"/add" ~content:"Add an entry";
+                     ];
+                 ];
+             ]
+          :: body');
       ])
