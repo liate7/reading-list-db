@@ -5,18 +5,18 @@ open Route
 
 let render_domain uri =
   let domain = Uri.host_with_default ~default:"local" uri in
-  match Stringext.chop_prefix ~prefix:"www." domain with
-  | Some domain -> domain
-  | None -> domain
+  Stringext.chop_prefix ~prefix:"www." domain |> Option.get_or ~default:domain
 
 let entry_to_row : Entry.id * Entry.t -> node =
  fun (entry_id, { url; title = title'; state; created_at; tags }) ->
   let created_at =
+    let format =
+      "{year}-{mon:0X}-{day:0X}T{hour:0X}:{min:0X}"
+      ^ "{tzoff-sign}{tzoff-hour:0X}{tzoff-min:0X}"
+    in
     Timedesc.Utils.timestamp_of_ptime created_at
     |> Timedesc.of_timestamp_exn ~tz_of_date_time:Timedesc.Time_zone.utc
-    |> Timedesc.to_string
-         ~format:
-           "{year}-{mon:0X}-{day:0X}T{hour:0X}:{min:0X}{tzoff-sign}{tzoff-hour:0X}{tzoff-min:0X}"
+    |> Timedesc.to_string ~format
   and with_htmx f attrs =
     f
       (attrs
